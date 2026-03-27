@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smart Travel</string>
+    <string name="tab_map">Map</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_nearby">Nearby</string>
+    <string name="tab_analytics">Analytics</string>
+    <string name="tab_places">Places</string>
+    <string name="location_tracking">Tracking your journey…</string>
+    <string name="no_gps">Waiting for GPS fix…</string>
+    <string name="export_success">Export successful!</string>
+    <string name="permission_required">Location permission is required for tracking</string>
+</resources>

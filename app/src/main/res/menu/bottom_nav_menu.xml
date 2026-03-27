@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/mapFragment"
+        android:icon="@drawable/ic_map"
+        android:title="Map" />
+
+    <item
+        android:id="@+id/searchFragment"
+        android:icon="@drawable/ic_search"
+        android:title="Search" />
+
+    <item
+        android:id="@+id/nearbyFragment"
+        android:icon="@drawable/ic_nearby"
+        android:title="Nearby" />
+
+    <item
+        android:id="@+id/analyticsFragment"
+        android:icon="@drawable/ic_analytics"
+        android:title="Analytics" />
+
+    <item
+        android:id="@+id/tagsFragment"
+        android:icon="@drawable/ic_tag"
+        android:title="Places" />
+
+</menu>

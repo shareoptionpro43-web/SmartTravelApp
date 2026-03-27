@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mapFragment">
+
+    <fragment
+        android:id="@+id/mapFragment"
+        android:name="com.smarttravel.app.ui.map.MapFragment"
+        android:label="Map" />
+
+    <fragment
+        android:id="@+id/searchFragment"
+        android:name="com.smarttravel.app.ui.search.SearchFragment"
+        android:label="Search" />
+
+    <fragment
+        android:id="@+id/nearbyFragment"
+        android:name="com.smarttravel.app.ui.nearby.NearbyFragment"
+        android:label="Nearby" />
+
+    <fragment
+        android:id="@+id/analyticsFragment"
+        android:name="com.smarttravel.app.ui.analytics.AnalyticsFragment"
+        android:label="Analytics" />
+
+    <fragment
+        android:id="@+id/tagsFragment"
+        android:name="com.smarttravel.app.ui.tags.TagsFragment"
+        android:label="Places" />
+
+</navigation>
