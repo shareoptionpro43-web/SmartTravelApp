@@ -37,7 +37,6 @@ class LocationRepository @Inject constructor(
         val points = pointDao.getPointsForSession(sessionId)
         val distance = calculateTotalDistance(points)
         val duration = (System.currentTimeMillis() - session.startTime) / 60000
-
         sessionDao.update(
             session.copy(
                 endTime = System.currentTimeMillis(),
@@ -88,7 +87,7 @@ class LocationRepository @Inject constructor(
     }
 }
 
-// ── Route Repository (OSRM) ────────────────────────────────────────────────
+// ── Route Repository ───────────────────────────────────────────────────────
 @Singleton
 class RouteRepository @Inject constructor(
     private val osrmApi: OsrmApi
@@ -100,105 +99,104 @@ class RouteRepository @Inject constructor(
         val steps: List<OsrmStep>
     )
 
-    suspend fun getRoute(
-        srcLat: Double, srcLon: Double,
-        dstLat: Double, dstLon: Double
-    ): Result<RouteResult> = try {
-        val coords = "$srcLon,$srcLat;$dstLon,$dstLat"
-        val response = osrmApi.getRoute(coords)
-        if (response.isSuccessful) {
-            val route = response.body()?.routes?.firstOrNull()
-                ?: return Result.Error("No route found")
-            val points = PolylineDecoder.decode(route.geometry)
-            Result.Success(
-                RouteResult(
-                    distanceKm = route.distance / 1000,
-                    durationMin = route.duration / 60,
-                    polylinePoints = points,
-                    steps = route.legs.flatMap { it.steps }
+    suspend fun getRoute(srcLat: Double, srcLon: Double, dstLat: Double, dstLon: Double): Result<RouteResult> {
+        return try {
+            val coords = "$srcLon,$srcLat;$dstLon,$dstLat"
+            val response = osrmApi.getRoute(coords)
+            if (response.isSuccessful) {
+                val route = response.body()?.routes?.firstOrNull()
+                    ?: return Result.Error("No route found")
+                val points = PolylineDecoder.decode(route.geometry)
+                Result.Success(
+                    RouteResult(
+                        distanceKm = route.distance / 1000,
+                        durationMin = route.duration / 60,
+                        polylinePoints = points,
+                        steps = route.legs.flatMap { it.steps }
+                    )
                 )
-            )
-        } else {
-            Result.Error("OSRM error: ${response.code()}")
+            } else {
+                Result.Error("OSRM error: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error", e)
         }
-    } catch (e: Exception) {
-        Result.Error(e.message ?: "Network error", e)
     }
 }
 
-// ── Search Repository (Nominatim) ──────────────────────────────────────────
+// ── Search Repository ──────────────────────────────────────────────────────
 @Singleton
 class SearchRepository @Inject constructor(
     private val nominatimApi: NominatimApi
 ) {
-    suspend fun searchPlaces(query: String): Result<List<NominatimPlace>> = try {
-        val response = nominatimApi.search(query)
-        if (response.isSuccessful) {
-            Result.Success(response.body() ?: emptyList())
-        } else {
-            Result.Error("Search failed: ${response.code()}")
+    suspend fun searchPlaces(query: String): Result<List<NominatimPlace>> {
+        return try {
+            val response = nominatimApi.search(query)
+            if (response.isSuccessful) {
+                Result.Success(response.body() ?: emptyList())
+            } else {
+                Result.Error("Search failed: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error", e)
         }
-    } catch (e: Exception) {
-        Result.Error(e.message ?: "Network error", e)
     }
 
-    suspend fun reverseGeocode(lat: Double, lon: Double): Result<NominatimReverseResult> = try {
-        val response = nominatimApi.reverseGeocode(lat, lon)
-        if (response.isSuccessful && response.body() != null) {
-            Result.Success(response.body()!!)
-        } else {
-            Result.Error("Reverse geocode failed")
+    suspend fun reverseGeocode(lat: Double, lon: Double): Result<NominatimReverseResult> {
+        return try {
+            val response = nominatimApi.reverseGeocode(lat, lon)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Reverse geocode failed")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error", e)
         }
-    } catch (e: Exception) {
-        Result.Error(e.message ?: "Network error", e)
     }
 }
 
-// ── Nearby Places Repository (Overpass) ────────────────────────────────────
+// ── Nearby Repository ──────────────────────────────────────────────────────
 @Singleton
 class NearbyRepository @Inject constructor(
     private val overpassApi: OverpassApi,
     private val locationRepository: LocationRepository
 ) {
-    suspend fun getNearbyPlaces(
-        lat: Double,
-        lon: Double,
-        category: PlaceCategory,
-        radiusMeters: Int = 2000
-    ): Result<List<NearbyPlace>> = try {
-        val tag = category.overpassTag.split("=")
-        val key = tag[0]; val value = tag[1]
-        val query = """
-            [out:json][timeout:25];
-            (
-              node["$key"="$value"](around:$radiusMeters,$lat,$lon);
-              way["$key"="$value"](around:$radiusMeters,$lat,$lon);
-            );
-            out center;
-        """.trimIndent()
-
-        val response = overpassApi.query(query)
-        if (response.isSuccessful) {
-            val elements = response.body()?.elements ?: emptyList()
-            val places = elements.mapNotNull { el ->
-                val elLat = el.lat ?: return@mapNotNull null
-                val elLon = el.lon ?: return@mapNotNull null
-                NearbyPlace(
-                    id = el.id,
-                    name = el.name,
-                    category = category,
-                    lat = elLat,
-                    lon = elLon,
-                    address = el.address,
-                    distanceMeters = locationRepository.haversineDistance(lat, lon, elLat, elLon) * 1000
-                )
-            }.sortedBy { it.distanceMeters }
-            Result.Success(places)
-        } else {
-            Result.Error("Overpass error: ${response.code()}")
+    suspend fun getNearbyPlaces(lat: Double, lon: Double, category: PlaceCategory, radiusMeters: Int = 2000): Result<List<NearbyPlace>> {
+        return try {
+            val tag = category.overpassTag.split("=")
+            val key = tag[0]; val value = tag[1]
+            val query = """
+                [out:json][timeout:25];
+                (
+                  node["$key"="$value"](around:$radiusMeters,$lat,$lon);
+                  way["$key"="$value"](around:$radiusMeters,$lat,$lon);
+                );
+                out center;
+            """.trimIndent()
+            val response = overpassApi.query(query)
+            if (response.isSuccessful) {
+                val elements = response.body()?.elements ?: emptyList()
+                val places = elements.mapNotNull { el ->
+                    val elLat = el.lat ?: return@mapNotNull null
+                    val elLon = el.lon ?: return@mapNotNull null
+                    NearbyPlace(
+                        id = el.id,
+                        name = el.name,
+                        category = category,
+                        lat = elLat,
+                        lon = elLon,
+                        address = el.address,
+                        distanceMeters = locationRepository.haversineDistance(lat, lon, elLat, elLon) * 1000
+                    )
+                }.sortedBy { it.distanceMeters }
+                Result.Success(places)
+            } else {
+                Result.Error("Overpass error: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error", e)
         }
-    } catch (e: Exception) {
-        Result.Error(e.message ?: "Network error", e)
     }
 }
 
@@ -212,13 +210,6 @@ class AnalyticsRepository @Inject constructor(
     fun getAllSummaries() = summaryDao.getAllSummaries()
     fun getAllSessions() = sessionDao.getAllSessions()
     fun getSessionsInRange(start: String, end: String) = sessionDao.getSessionsInRange(start, end)
-
-    suspend fun upsertDailySummary(date: String) {
-        val existing = summaryDao.getSummaryForDate(date)
-        val sessions = sessionDao.getSessionsByDate(date)
-        // Collect once for summary computation (called from coroutine context)
-    }
-
     suspend fun getAllSessionsOnce() = sessionDao.getRecentSessions(1000)
 }
 
@@ -228,7 +219,6 @@ class SavedPlaceRepository @Inject constructor(
     private val placeDao: SavedPlaceDao
 ) {
     fun getAllPlaces(): Flow<List<SavedPlace>> = placeDao.getAllPlaces()
-
     suspend fun savePlace(place: SavedPlace): Long = placeDao.insert(place)
     suspend fun updatePlace(place: SavedPlace) = placeDao.update(place)
     suspend fun deletePlace(place: SavedPlace) = placeDao.delete(place)
